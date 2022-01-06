@@ -1,0 +1,76 @@
+Tema 2 TPM
+
+Membri echipa: Alexandrescu Nicolae, Vacaru Robert
+Grupa: TPM1
+
+Exercitiul 1
+
+a) Pentru adaugarea unui element in lista observam in cod linia "pred.next = node;".
+Dupa ce se parcurge coada pana la ultimul element ce are hash-ul mai mic decat noul element prin secventa 
+"while (current.key < key) {
+            pred = current;
+            current = current.next;
+       }", 
+se verifica daca apare deja in lista hash-ul noului element iar daca nu apare atunci este adaugat in lista.
+Ca rezultat toate elementele din lista sunt ordonate crescator in functie de hash-urile lor.
+
+b) Pentru esec la adaugarea unui element in lista avem portiunea de cod:
+"if (key == current.key) {
+    	return false;
+    }"
+Linia "return false; este executata atunci cand elementul pe care dorim sa il adaugam apare deja in lista.
+
+c) Pentru stergerea unui element din lista se observa linia "pred.next = current.next;".
+Dupa parcurgerea listei prin secventa 
+"while (current.key < key) {
+            pred = current;
+            current = current.next;
+       }",
+daca hash-ul elementului cautat este prezent atunci el este sters din lista.
+
+d) Pentru esec la stergere uneui element din lista observam secventa 
+" else {
+    return false;         // not present
+  }"
+
+din contextul instructiunii "if (key == current.key)", adica atunci cand elementul cautat nu a fost gasit nu se mai sterge nici un element din lista.
+
+Exercitiul 2
+
+a) Deoarece atributul size este o variabila de tipul "AtomicInteger", aceasta nu are nevoie sa fie sincronizata in cadrul lock-ului deci secventa de cod:
+"if (size.getAndIncrement() == 0) {
+   	mustWakeDequeuers = true;
+    }"
+
+poate fi plasata dupa ce se da drumul la lock.
+
+
+b) In cazul in care folosim "head.nodelock.lock()" in loc de "enqLock.lock()" si "tail.nodelock.lock()" in loc de "deqLock.lock()" atunci coada isi poate pierde caracterul FIFO
+in cazul in care avem de exemplu 3 thread-uri iar primul face enq() pune lock pe head.nodelock si creeaza un nod nou dupa care al doilea thread face deq() si modifica head-ul
+dupa care vine al treilea thread care apeleaza enq(), pune lock pe noul head.nodelock() intrand astfel in enq() in acelasi timp in care primul thread inca se afla in metoda
+enq() apoi creeaza un nod nou si il baga in tail inaintea primului thread,fapt care nu coincide cu caracterului FIFO deoarece thread-ul al treilea s-a bagat in fata primului thread la coada.
+
+
+c) La prima intrebare raspunsul este da, algoritmul pentru coada va functiona corect deoarece intructiunile din metodele enq() si deq() se executa intre lock() si unlock()
+deci nu pot exista doua thread-uri care sa execute simultan enq() sau deq().In cazul metodei enq(), thread-urile obtin pe rand lock-ul iar daca coada este plina intra
+in spinning pana apare un loc liber pentru a mai introduce un nod, analog si pentru metoda deq() atunci cand coada e goala deci comportamentul FIFO ramane.
+
+In al doilea caz metoda deq() va functiona corect deoarece se comporta la fel ca la punctul a) singura diferenta fiind aceea ca in loc de 
+"while (head.next == null) {
+      		notEmptyCondition.await();
+       }"  avem :
+
+"if (head.next == null) {
+      notEmptyCondition.await();
+     }
+
+ while (size.get() == 0) {}; //spinning" 
+
+care reprezinta doua bariere in calea thread-urilor care obtin lock-ul pe deq() si raman blocate in if renuntand la lock dar apoi la un semnal primit de la enq() cate un thread pe rand recapata lock-ul,
+trece de while si scoate un element din coada.
+
+
+
+d) In cazul de fata este necesar ca verificarea sa se faca in interiorul unei sectiuni lock-unlock pentru a nu intra mai multe thread-uri in deq() astfel ajungand sa scoata elemente dintr-o coada goala.
+Daca if-ul ar fi in afara sectiunii lock-unlock ar putea intra in deq() doua thread-uri in acelasi timp care vad ca mai este un element in coada si ambele ar trece de if iar unul ar incerca sa scoata un element inexistent.
+
